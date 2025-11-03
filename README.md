@@ -16,6 +16,9 @@ docker compose up --build -d
 
 # 停止
 docker compose down
+
+# 語彙データの生成（必要に応じて）
+npm run --prefix apps/web build:vocabulary
 ```
 
 詳細なセットアップやマイグレーション適用手順は `docs/` 以下を参照してください。
@@ -44,4 +47,3 @@ docker compose exec -T web npm run seed
 
 - `apps/web/node_modules` や `.next` などの生成物は Git 管理外です。必要に応じて `npm install` を再実行してください。
 - 実運用データはコミットせず、提供されているシードスクリプトや dump を利用して動作確認を行ってください。
-

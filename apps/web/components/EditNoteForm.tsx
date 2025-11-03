@@ -60,42 +60,45 @@ export function EditNoteForm({ note }: { note: NoteFormValues }) {
     });
   }, []);
 
-  const handleSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    const newErrors: Partial<Record<FieldName, string>> = {};
+  const handleSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const formData = new FormData(form);
+      const newErrors: Partial<Record<FieldName, string>> = {};
 
-    (Object.keys(FIELD_RULES) as FieldName[]).forEach((field) => {
-      const value = formData.get(field);
-      if (typeof value === "string") {
-        const message = validateField(field, value);
-        if (message) {
-          newErrors[field] = message;
+      (Object.keys(FIELD_RULES) as FieldName[]).forEach((field) => {
+        const value = formData.get(field);
+        if (typeof value === "string") {
+          const message = validateField(field, value);
+          if (message) {
+            newErrors[field] = message;
+          }
         }
-      }
-    });
+      });
 
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      const firstField = Object.keys(newErrors)[0];
-      const element = form.querySelector<HTMLElement>(`[name="${firstField}"]`);
-      element?.focus();
-      return;
-    }
-
-    startTransition(async () => {
-      try {
-        setFormError(null);
-        await updateTastingNote(formData);
-        router.push("/notes");
-        router.refresh();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "ノートの更新に失敗しました";
-        setFormError(message);
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
+        const firstField = Object.keys(newErrors)[0];
+        const element = form.querySelector<HTMLElement>(`[name="${firstField}"]`);
+        element?.focus();
+        return;
       }
-    });
-  }, []);
+
+      startTransition(async () => {
+        try {
+          setFormError(null);
+          await updateTastingNote(formData);
+          router.push("/notes");
+          router.refresh();
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "ノートの更新に失敗しました";
+          setFormError(message);
+        }
+      });
+    },
+    [router]
+  );
 
   return (
     <form

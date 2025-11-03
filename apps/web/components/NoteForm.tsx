@@ -1,15 +1,36 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import type { CSSProperties, FocusEvent, ChangeEvent, FormEvent } from "react";
 import { createTastingNote } from "@/app/actions";
 import { SubmitButton } from "./SubmitButton";
 import { FIELD_RULES, type FieldName, validateField } from "./noteValidation";
+import aromaVocabularyData from "@/data/generated/aromaVocabulary.json";
+import flavorVocabularyData from "@/data/generated/flavorVocabulary.json";
+import { KeywordSuggestions } from "./KeywordSuggestions";
 
 export function NoteForm() {
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const aromaRef = useRef<HTMLTextAreaElement>(null);
+  const flavorRef = useRef<HTMLTextAreaElement>(null);
+
+  const aromaVocabulary = useMemo(
+    () => ({
+      categories: aromaVocabularyData.categories.map(({ id, label, keywords }) => ({ id, label, keywords })),
+      vocabulary: aromaVocabularyData.vocabulary
+    }),
+    []
+  );
+
+  const flavorVocabulary = useMemo(
+    () => ({
+      categories: flavorVocabularyData.categories.map(({ id, label, keywords }) => ({ id, label, keywords })),
+      vocabulary: flavorVocabularyData.vocabulary
+    }),
+    []
+  );
 
   const handleBlur = useCallback((event: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name } = event.currentTarget;
@@ -73,6 +94,12 @@ export function NoteForm() {
         setFormError(null);
         await createTastingNote(formData);
         form.reset();
+        if (aromaRef.current) {
+          aromaRef.current.value = "";
+        }
+        if (flavorRef.current) {
+          flavorRef.current.value = "";
+        }
         setErrors({});
       } catch (error) {
         const message = error instanceof Error ? error.message : "ノートの保存に失敗しました";
@@ -80,6 +107,36 @@ export function NoteForm() {
       }
     });
   }, []);
+
+  const appendTermToField = useCallback(
+    (field: FieldName, ref: React.RefObject<HTMLTextAreaElement | HTMLInputElement>, term: string) => {
+      const target = ref.current;
+      if (!target) {
+        return;
+      }
+      const currentValue = target.value.trim();
+      const delimiter = currentValue ? "、" : "";
+      const existingTokens = currentValue
+        ? currentValue.split(/[、,，\/・\s]+/u).map((token) => token.trim()).filter(Boolean)
+        : [];
+      if (existingTokens.includes(term)) {
+        return;
+      }
+      const nextValue = `${currentValue}${delimiter}${term}`.replace(/^\s+/, "");
+      target.value = nextValue;
+      const inputEvent = new Event("input", { bubbles: true });
+      target.dispatchEvent(inputEvent);
+      const message = validateField(field, nextValue);
+      setErrors((prev) => {
+        if (!message) {
+          const { [field]: _removed, ...rest } = prev;
+          return rest;
+        }
+        return { ...prev, [field]: message };
+      });
+    },
+    [setErrors]
+  );
 
   return (
     <form
@@ -141,10 +198,18 @@ export function NoteForm() {
           maxLength={100}
           onBlur={handleBlur}
           onChange={handleChange}
+          ref={aromaRef}
           style={textAreaStyle}
         />
       </label>
       {errors.aroma && <ErrorText message={errors.aroma} />}
+      <KeywordSuggestions
+        title="香りのヒント"
+        description="気になる語句をクリックして追加できます"
+        vocabulary={aromaVocabulary}
+        onSelect={(term) => appendTermToField("aroma", aromaRef, term)}
+        randomCount={5}
+      />
       <label style={{ display: "grid", gap: "0.35rem" }}>
         <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>味わい</span>
         <textarea
@@ -154,10 +219,18 @@ export function NoteForm() {
           maxLength={100}
           onBlur={handleBlur}
           onChange={handleChange}
+          ref={flavorRef}
           style={textAreaStyle}
         />
       </label>
       {errors.flavor && <ErrorText message={errors.flavor} />}
+      <KeywordSuggestions
+        title="味わいのヒント"
+        description="よく使われる表現から選べます"
+        vocabulary={flavorVocabulary}
+        onSelect={(term) => appendTermToField("flavor", flavorRef, term)}
+        randomCount={5}
+      />
       <label style={{ display: "grid", gap: "0.35rem" }}>
         <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>総合</span>
         <textarea

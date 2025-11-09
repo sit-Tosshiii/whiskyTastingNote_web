@@ -16,6 +16,13 @@ export type NoteRecord = {
 };
 
 export type NoteInput = Omit<NoteRecord, "id" | "created_at" | "updated_at">;
+export type ImportMode = "append" | "replace";
+export type ImportStats = {
+  processed: number;
+  added: number;
+  skipped: number;
+  mode: ImportMode;
+};
 
 const DB_NAME = "whisky-notes";
 const DB_VERSION = 1;
@@ -93,3 +100,111 @@ export async function deleteNote(id: number): Promise<void> {
   await wrapRequest(store.delete(id));
 }
 
+function sanitizeString(value: unknown, maxLength?: number): string | null {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    return typeof maxLength === "number" ? trimmed.slice(0, maxLength) : trimmed;
+  }
+  if (value === null || value === undefined) return null;
+  return sanitizeString(String(value), maxLength);
+}
+
+function sanitizeNumber(value: unknown, options?: { min?: number; max?: number }): number | null {
+  const num = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(num)) return null;
+  const min = options?.min ?? -Infinity;
+  const max = options?.max ?? Infinity;
+  return Math.min(Math.max(num, min), max);
+}
+
+function sanitizeDate(value: unknown): string | null {
+  if (typeof value === "string") {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+  }
+  return null;
+}
+
+export async function importNotesFromJson(raw: unknown, mode: ImportMode = "append"): Promise<ImportStats> {
+  const array = Array.isArray(raw) ? raw : [];
+  const db = await openDb();
+  const tx = db.transaction(STORE_NAME, "readwrite");
+  const store = tx.objectStore(STORE_NAME);
+
+  if (mode === "replace") {
+    store.clear();
+  }
+
+  const existingNames = mode === "append"
+    ? new Set((await getAllNotes()).map((note) => note.whisky_name))
+    : new Set<string>();
+
+  let added = 0;
+  let skipped = 0;
+
+  for (let i = 0; i < array.length; i += 1) {
+    const item = array[i] ?? {};
+    const whiskyName = sanitizeString((item as Record<string, unknown>).whisky_name, 100);
+    if (!whiskyName) {
+      skipped += 1;
+      continue;
+    }
+
+    if (existingNames.has(whiskyName)) {
+      skipped += 1;
+      continue;
+    }
+
+    const payload: NoteRecord = {
+      whisky_name: whiskyName,
+      distillery_name: sanitizeString((item as Record<string, unknown>).distillery_name, 100),
+      region: sanitizeString((item as Record<string, unknown>).region, 100),
+      aroma: sanitizeString((item as Record<string, unknown>).aroma, 100),
+      flavor: sanitizeString((item as Record<string, unknown>).flavor, 100),
+      summary: sanitizeString((item as Record<string, unknown>).summary, 200),
+      cask: sanitizeString((item as Record<string, unknown>).cask, 100),
+      abv: sanitizeNumber((item as Record<string, unknown>).abv, { min: 0, max: 100 }),
+      rating: sanitizeNumber((item as Record<string, unknown>).rating, { min: 0, max: 100 }),
+      created_at: sanitizeDate((item as Record<string, unknown>).created_at) ?? new Date().toISOString(),
+      updated_at: sanitizeDate((item as Record<string, unknown>).updated_at) ?? new Date().toISOString()
+    };
+
+    const request = payload.id ? store.put(payload) : store.add(payload);
+    try {
+      await wrapRequest(request);
+      existingNames.add(whiskyName);
+      added += 1;
+    } catch (error) {
+      console.error("Failed to import note", error);
+      skipped += 1;
+    }
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+
+  return {
+    processed: array.length,
+    added,
+    skipped,
+    mode
+  };
+}
+
+export async function clearAllNotes(): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(STORE_NAME, "readwrite");
+  const store = tx.objectStore(STORE_NAME);
+  store.clear();
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+}

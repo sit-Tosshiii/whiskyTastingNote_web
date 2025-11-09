@@ -1,15 +1,12 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import type { CSSProperties } from "react";
-import { AuthMenu } from "@/components/AuthMenu";
-import { NoteForm } from "@/components/NoteForm";
-import { getSession } from "@/lib/session";
+"use client";
 
-export default async function NewNotePage() {
-  const session = getSession();
-  if (!session) {
-    redirect("/");
-  }
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import type { CSSProperties } from "react";
+import { NoteForm } from "@/components/NoteForm";
+
+export default function NewNotePage() {
+  const router = useRouter();
 
   return (
     <main style={{ maxWidth: 720, margin: "0 auto", padding: "1.5rem", display: "grid", gap: "1.5rem" }}>
@@ -18,19 +15,17 @@ export default async function NewNotePage() {
           <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>ノートを登録</h1>
           <p style={{ margin: 0, opacity: 0.8 }}>蒸留所・樽情報を含めてテイスティングノートを記録</p>
         </div>
-        <AuthMenu email={session.email} />
+        <nav style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+          <Link href="/" style={linkButtonStyle}>
+            ホーム
+          </Link>
+          <Link href="/notes" style={linkButtonStyle}>
+            ノートを一覧
+          </Link>
+        </nav>
       </header>
 
-      <nav style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-        <Link href="/" style={linkButtonStyle}>
-          ホーム
-        </Link>
-        <Link href="/notes" style={linkButtonStyle}>
-          ノートを検索・閲覧
-        </Link>
-      </nav>
-
-      <NoteForm />
+      <NoteForm onSaved={() => router.push("/notes")} />
     </main>
   );
 }

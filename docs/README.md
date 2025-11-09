@@ -5,8 +5,10 @@ Whisky Tasting Note プロジェクトに関するドキュメントの一覧で
 | ファイル | 用途 |
 | --- | --- |
 | `product_requirements.md` | プロダクトの現状要件、優先機能、今後の方針をまとめたドキュメント。 |
-| `docker_setup.md` | Docker Compose を利用したローカル開発環境の構成と起動手順。 |
-| `supabase_setup.md` | Postgres（ローカル）と Supabase 移行を見据えたデータベース設定メモや環境変数。 |
-| `data_seeding.md` | サンプルデータの投入手順や他 PC との共有方法。 |
+| `data_seeding.md` | IndexedDB データのバックアップや端末間共有方法。 |
+| `bookmarklets.md` | ブックマークレットによるフォーム自動入力の使い方。 |
+| `docker_setup.md` | 既存の Docker 開発環境メモ（将来サーバー連携機能用に保持）。 |
+| `supabase_setup.md` | 将来 Supabase へ移行する場合の設定メモ（参考用）。 |
 
-ドキュメントの更新時は、この一覧も合わせてメンテナンスしてください。新しい設計資料やRUNBOOKを追加する場合は、別ファイルにまとめてここからリンクしてください。
+ドキュメントの更新時は、この一覧も合わせてメンテナンスしてください。新しい設計資料や RUNBOOK を追加する場合は、別ファイルにまとめてここからリンクしてください。
+

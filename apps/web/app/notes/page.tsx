@@ -1,84 +1,83 @@
+"use client";
+
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import type { CSSProperties } from "react";
-import { AuthMenu } from "@/components/AuthMenu";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import type { CSSProperties, FormEvent } from "react";
 import { NotesList } from "@/components/NotesList";
-import { getSession } from "@/lib/session";
-import { query } from "@/lib/db";
+import { getAllNotes, deleteNote, type NoteRecord } from "@/lib/localNotes";
 
-type NotesPageProps = {
-  searchParams?: {
-    q?: string;
-  };
-};
-
-type NoteRow = {
-  id: number;
-  user_id: number;
-  whisky_name: string;
-  distillery_name: string | null;
-  region: string | null;
-  abv: string | null;
-  cask: string | null;
-  aroma: string | null;
-  flavor: string | null;
-  summary: string | null;
-  image_path: string | null;
-  rating: number | null;
-  created_at: string;
-};
-
-async function fetchNotes(userId: number, keyword: string) {
-  const params: Array<number | string> = [userId];
-  let sql = `
-    select
-      id,
-      user_id,
-      whisky_name,
-      distillery_name,
-      region,
-      abv::text as abv,
-      cask,
-      aroma,
-      flavor,
-      summary,
-      image_path,
-      rating,
-      created_at
-    from tasting_notes
-    where user_id = $1
-  `;
-
-  if (keyword) {
-    params.push(`%${keyword}%`);
-    sql += `
-      and (
-        whisky_name ilike $2
-        or coalesce(distillery_name, '') ilike $2
-        or coalesce(region, '') ilike $2
-        or coalesce(cask, '') ilike $2
-        or coalesce(aroma, '') ilike $2
-        or coalesce(flavor, '') ilike $2
-        or coalesce(summary, '') ilike $2
-        or coalesce(abv::text, '') ilike $2
-        or coalesce(image_path, '') ilike $2
-      )
-    `;
-  }
-
-  sql += " order by created_at desc";
-
-  return query<NoteRow>(sql, params);
+function filterNotes(notes: NoteRecord[], keyword: string) {
+  if (!keyword) return notes;
+  const lower = keyword.toLowerCase();
+  return notes.filter((note) =>
+    [
+      note.whisky_name,
+      note.distillery_name ?? "",
+      note.region ?? "",
+      note.cask ?? "",
+      note.aroma ?? "",
+      note.flavor ?? "",
+      note.summary ?? "",
+      note.abv?.toString() ?? "",
+      note.rating?.toString() ?? ""
+    ].some((value) => value.toLowerCase().includes(lower))
+  );
 }
 
-export default async function NotesPage({ searchParams }: NotesPageProps) {
-  const session = getSession();
-  if (!session) {
-    redirect("/");
-  }
+export default function NotesPage() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const keywordParam = params.get("q") ?? "";
+  const [keyword, setKeyword] = useState(keywordParam);
+  const [notes, setNotes] = useState<NoteRecord[]>([]);
 
-  const keyword = typeof searchParams?.q === "string" ? searchParams.q.trim() : "";
-  const notes = await fetchNotes(session.userId, keyword);
+  const loadNotes = useCallback(async () => {
+    const all = await getAllNotes();
+    setNotes(all);
+  }, []);
+
+  useEffect(() => {
+    loadNotes();
+  }, [loadNotes]);
+
+  useEffect(() => {
+    setKeyword(keywordParam);
+  }, [keywordParam]);
+
+  const filteredNotes = useMemo(() => filterNotes(notes, keyword), [notes, keyword]);
+
+  const handleSearch = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const formData = new FormData(event.currentTarget);
+      const value = String(formData.get("q") ?? "").trim();
+      router.replace(value ? `/notes?q=${encodeURIComponent(value)}` : "/notes");
+    },
+    [router]
+  );
+
+  const handleResetSearch = useCallback(() => {
+    router.replace("/notes");
+  }, [router]);
+
+  const handleDelete = useCallback(
+    async (noteId: number) => {
+      if (!window.confirm("ノートを削除しますか？")) {
+        return;
+      }
+      await deleteNote(noteId);
+      loadNotes();
+    },
+    [loadNotes]
+  );
+
+  const handleEdit = useCallback(
+    (noteId: number) => {
+      router.push(`/notes/${noteId}/edit`);
+    },
+    [router]
+  );
 
   return (
     <main style={{ maxWidth: 800, margin: "0 auto", padding: "1.5rem", display: "grid", gap: "1.5rem" }}>
@@ -87,19 +86,17 @@ export default async function NotesPage({ searchParams }: NotesPageProps) {
           <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>ノートを検索・閲覧</h1>
           <p style={{ margin: 0, opacity: 0.8 }}>キーワードでフィルタリングして記録を探す</p>
         </div>
-        <AuthMenu email={session.email} />
+        <nav style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+          <Link href="/" style={linkButtonStyle}>
+            ホーム
+          </Link>
+          <Link href="/notes/new" style={linkButtonStyle}>
+            ノートを登録
+          </Link>
+        </nav>
       </header>
 
-      <nav style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-        <Link href="/" style={linkButtonStyle}>
-          ホーム
-        </Link>
-        <Link href="/notes/new" style={linkButtonStyle}>
-          ノートを登録
-        </Link>
-      </nav>
-
-      <form method="get" style={searchFormStyle}>
+      <form onSubmit={handleSearch} style={searchFormStyle}>
         <div style={{ flex: "1 1 auto", display: "grid", gap: "0.35rem" }}>
           <label htmlFor="note-search" style={{ fontSize: "0.75rem", opacity: 0.7 }}>
             キーワード検索
@@ -108,7 +105,7 @@ export default async function NotesPage({ searchParams }: NotesPageProps) {
             id="note-search"
             name="q"
             defaultValue={keyword}
-            placeholder="銘柄名 / 蒸留所 / 産地 / 樽 / テイスティングメモ / 総合"
+            placeholder="銘柄名 / 蒸留所 / 産地 / 樽 / テイスティングメモ"
             style={{
               padding: "0.6rem 0.8rem",
               borderRadius: "0.5rem",
@@ -133,28 +130,30 @@ export default async function NotesPage({ searchParams }: NotesPageProps) {
             検索
           </button>
           {keyword && (
-            <Link
-              href="/notes"
+            <button
+              type="button"
+              onClick={handleResetSearch}
               style={{
                 padding: "0.6rem 1rem",
                 borderRadius: "0.5rem",
                 border: "1px solid rgba(148, 163, 184, 0.2)",
                 color: "#f8fafc",
                 fontWeight: 500,
-                textDecoration: "none"
+                backgroundColor: "transparent",
+                cursor: "pointer"
               }}
             >
               条件をクリア
-            </Link>
+            </button>
           )}
         </div>
       </form>
 
       <section>
         <h2 style={{ fontSize: "1.5rem", marginBottom: "0.75rem" }}>
-          {keyword ? `検索結果 (${notes.length}件)` : "マイノート一覧"}
+          {keyword ? `検索結果 (${filteredNotes.length}件)` : `マイノート一覧 (${notes.length}件)`}
         </h2>
-        <NotesList notes={notes} />
+        <NotesList notes={filteredNotes} onEdit={handleEdit} onDelete={handleDelete} />
       </section>
     </main>
   );

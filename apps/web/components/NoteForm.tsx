@@ -1,18 +1,22 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import type { CSSProperties, FocusEvent, ChangeEvent, FormEvent } from "react";
-import { createTastingNote } from "@/app/actions";
 import { SubmitButton } from "./SubmitButton";
 import { FIELD_RULES, type FieldName, validateField } from "./noteValidation";
 import aromaVocabularyData from "@/data/generated/aromaVocabulary.json";
 import flavorVocabularyData from "@/data/generated/flavorVocabulary.json";
 import { KeywordSuggestions } from "./KeywordSuggestions";
+import { addNote, type NoteRecord } from "@/lib/localNotes";
 
-export function NoteForm() {
+type NoteFormProps = {
+  onSaved?: (note: NoteRecord) => void;
+};
+
+export function NoteForm({ onSaved }: NoteFormProps) {
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const aromaRef = useRef<HTMLTextAreaElement>(null);
   const flavorRef = useRef<HTMLTextAreaElement>(null);
 
@@ -89,24 +93,48 @@ export function NoteForm() {
       return;
     }
 
-    startTransition(async () => {
-      try {
-        setFormError(null);
-        await createTastingNote(formData);
-        form.reset();
-        if (aromaRef.current) {
-          aromaRef.current.value = "";
-        }
-        if (flavorRef.current) {
-          flavorRef.current.value = "";
-        }
-        setErrors({});
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "ノートの保存に失敗しました";
-        setFormError(message);
+    const whiskyName = String(formData.get("whisky_name") ?? "").trim();
+    const distilleryName = String(formData.get("distillery_name") ?? "").trim() || null;
+    const region = String(formData.get("region") ?? "").trim() || null;
+    const aroma = String(formData.get("aroma") ?? "").trim() || null;
+    const flavor = String(formData.get("flavor") ?? "").trim() || null;
+    const summary = String(formData.get("summary") ?? "").trim() || null;
+    const cask = String(formData.get("cask") ?? "").trim() || null;
+    const ratingRaw = formData.get("rating");
+    const rating = ratingRaw ? Number(ratingRaw) : null;
+    const abvRaw = formData.get("abv");
+    const abv = abvRaw ? Number(abvRaw) : null;
+
+    setPending(true);
+    try {
+      setFormError(null);
+      const saved = await addNote({
+        whisky_name: whiskyName,
+        distillery_name: distilleryName,
+        region,
+        aroma,
+        flavor,
+        summary,
+        abv,
+        cask,
+        rating
+      });
+      form.reset();
+      if (aromaRef.current) {
+        aromaRef.current.value = "";
       }
-    });
-  }, []);
+      if (flavorRef.current) {
+        flavorRef.current.value = "";
+      }
+      setErrors({});
+      onSaved?.(saved);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "ノートの保存に失敗しました";
+      setFormError(message);
+    } finally {
+      setPending(false);
+    }
+  }, [onSaved]);
 
   const appendTermToField = useCallback(
     (field: FieldName, ref: React.RefObject<HTMLTextAreaElement | HTMLInputElement>, term: string) => {
@@ -288,16 +316,6 @@ export function NoteForm() {
         </label>
       </div>
       {errors.rating && <ErrorText message={errors.rating} />}
-      <label style={{ display: "grid", gap: "0.35rem" }}>
-        <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>画像 (1枚まで)</span>
-        <input
-          name="image"
-          type="file"
-          accept="image/*"
-          style={fileInputStyle}
-        />
-        <span style={{ fontSize: "0.75rem", opacity: 0.6 }}>最大5MBの画像をアップロードできます</span>
-      </label>
       <SubmitButton label="ノートを保存" pending={pending} />
       {formError && <p style={formErrorStyle}>{formError}</p>}
     </form>
@@ -315,12 +333,6 @@ const inputStyle: CSSProperties = {
 const textAreaStyle: CSSProperties = {
   ...inputStyle,
   resize: "vertical"
-};
-
-const fileInputStyle: CSSProperties = {
-  ...inputStyle,
-  padding: "0.4rem 0.8rem",
-  cursor: "pointer"
 };
 
 const errorTextStyle: CSSProperties = {

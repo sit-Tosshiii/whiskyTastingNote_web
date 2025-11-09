@@ -1,40 +1,49 @@
-# データ共有 / シード手順
+# ローカルデータのバックアップ / 共有
 
-動作確認用のサンプルデータは、GitHub 上で管理できるよう `database/seeds` と `apps/web/data` 配下に用意しています。別 PC や新しい環境で共有する場合は、以下の手順で再現できます。
+Whisky Tasting Note はブラウザの IndexedDB にノートを保存します。端末間で共有したい場合やバックアップを取りたい場合は、以下の手順で JSON をエクスポート／インポートしてください。
 
-## 1. 事前準備
+## 1. データのエクスポート
 
-1. リポジトリをクローンし、`docker compose up --build -d` でコンテナを起動。
-2. `.env` を作成して `DATABASE_URL` など必要な環境変数を設定。
+1. アプリを開いた状態でブラウザの開発者ツールを開きます。
+2. `Application` (または `Storage`) タブから `IndexedDB` → `whisky-notes` → `notes` を選択します。
+3. 利用中のブラウザがエクスポート機能を提供している場合は、そのまま JSON として保存できます。無い場合は、以下のスニペットをコンソールで実行しダウンロードしてください。
 
-## 2. サンプルユーザーとノートの投入
-
-`web` コンテナ内で `npm run seed` を実行すると、動作確認用ユーザーとノート（`distilleries.json` ベース）が自動で登録されます。
-
-```bash
-docker compose exec -T web npm run seed
+```js
+(async () => {
+  const request = indexedDB.open("whisky-notes", 1);
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+  });
+  const tx = db.transaction("notes", "readonly");
+  const store = tx.objectStore("notes");
+  const notes = await new Promise<any[]>((resolve, reject) => {
+    const getAll = store.getAll();
+    getAll.onerror = () => reject(getAll.error);
+    getAll.onsuccess = () => resolve(getAll.result || []);
+  });
+  const blob = new Blob([JSON.stringify(notes, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "whisky-notes-backup.json";
+  a.click();
+  URL.revokeObjectURL(url);
+})();
 ```
 
-- 対象ユーザー: `it.chshi17623.m1@gmail.com`
-- 初回作成時のログインパスワード: `password`（既に存在する場合は既存パスワードを維持）
-- 登録されるノート: `apps/web/data/distilleries.json` を元に変換した全データ
+## 2. データのインポート
 
-同じ内容が既に登録済みの場合はスキップされ、重複は作られません。
+1. バックアップを復元したい端末でアプリを開き、開発者ツールの `IndexedDB` → `whisky-notes` → `notes` を選択します。
+2. `Import` が利用できるブラウザでは、保存した JSON を指定して読み込みます。
+3. 機能がない場合は、コンソールで JSON を読み込み `store.add`/`store.put` する簡単なスクリプトを実行してください（重複に注意）。
+4. 読み込み後にページをリロードすると一覧に反映されます。
 
-## 3. JSON からの一括登録
+## 3. 注意事項
 
-大量データを個別に挿入したい場合や、別ユーザーに割り当てたい場合は `apps/web/scripts/import_distilleries.js` を利用してください。環境変数や処理内容を調整し、以下のように実行します。
+- ブラウザのストレージは OS のクリーンアップやユーザー操作で削除される場合があります。重要なノートは定期的にエクスポートしてください。
+- JSON にはテイスティング内容がそのまま含まれるため、取り扱いには注意しましょう。
+- 将来的にクラウド同期機能を追加する場合は、この JSON をアップロードする API を追加するだけで移行可能です。
 
-```bash
-docker compose exec -T web node scripts/import_distilleries.js
-```
+IndexedDB のスキーマは `apps/web/lib/localNotes.ts` を参照してください。
 
-既定では `it.chshi17623.m1@gmail.com` アカウントにノートが大量挿入されます。動作確認後は不要なレコードを削除してください。
-
-## 4. データを GitHub で共有する際の注意
-
-- 実際の会員情報や個人情報は含めず、匿名化したサンプルデータのみコミットする。
-- スキーマ変更をしたら、`database/migrations` や `supabase/migrations` のマイグレーションを追加し、必要に応じて seed ファイルも更新する。
-- シード用データに変更がある場合は、`docs/README.md` のリンクとこのドキュメントを更新する。
-
-これらの手順を守れば、複数 PC 間でも安全かつ再現性の高い検証環境を共有できます。

@@ -1,49 +1,46 @@
 # Whisky Tasting Note
 
-Whisky テイスティングノートを管理・検索できる PWA 対応の Web アプリです。Next.js (App Router) と Postgres を使用し、Docker Compose でローカル開発環境を立ち上げられる構成になっています。
+Whisky テイスティングノートをブラウザ上で管理できる PWA です。データは端末の IndexedDB に保存されるため、ログイン無しでオフラインでも利用できます。Docker や Postgres の設定は、将来の分析機能 / サーバー連携のために引き続き同梱しています。
 
-## ローカル開発
-
-```bash
-# 依存インストール（ホスト側）
-npm install --prefix apps/web
-
-# Docker コンテナ起動
-docker compose up --build -d
-
-# Next.js Dev サーバー: http://localhost:3001
-# FastAPI スタブ:       http://localhost:8000
-
-# 停止
-docker compose down
-
-# 語彙データの生成（必要に応じて）
-npm run --prefix apps/web build:vocabulary
-```
-
-詳細なセットアップやマイグレーション適用手順は `docs/` 以下を参照してください。
-
-## サンプルデータ投入
+## セットアップ
 
 ```bash
-docker compose exec -T web npm run seed
+# 依存インストール
+cd apps/web
+npm install
+
+# 香り・味わい語彙の生成（語彙を更新したい場合のみ）
+npm run build:vocabulary
+
+# 開発サーバー起動
+npm run dev
 ```
 
-- 対象ユーザー: `it.chshi17623.m1@gmail.com`
-- パスワード: シード実行時に存在しなければ `password`
-- データソース: `apps/web/data/distilleries.json`
+開発サーバーは `http://localhost:3000` で立ち上がります。ブラウザからアクセスし、ホーム画面に追加すると PWA として利用できます。
 
-より詳しいデータ共有手順は `docs/data_seeding.md` にまとめています。
+## 主な機能
+
+- ノートの登録・検索・編集・削除（IndexedDB に保存）
+- 香り／味わい入力をサポートする語彙サジェスト機能
+- ブックマークレットによる直近ノートの自動入力 (`docs/bookmarklets.md`)
+- PWA 対応（Service Worker / manifest）
 
 ## リポジトリ構成
 
-- `apps/web/` – Next.js フロントエンド
-- `services/analytics/` – 将来の嗜好分析 API（FastAPI）
-- `database/` – Postgres 初期化 SQL と追加マイグレーション
-- `supabase/` – Supabase 移行用のスキーマ定義
-- `docs/` – セットアップ・要件・データ共有に関するドキュメント
+- `apps/web/` – Next.js ベースのフロントエンド
+  - `components/` – UI コンポーネント
+  - `lib/localNotes.ts` – IndexedDB アクセスユーティリティ
+  - `public/manifest.json` / `public/sw.js` – PWA 用設定
+  - `scripts/buildFlavorVocabulary.js` – 香り・味わい語彙生成スクリプト
+- `database/`, `services/`, `supabase/` – 将来のサーバーサイド機能や Docker 開発環境向け資産（現状の IndexedDB モードでは未使用）
+- `docs/` – 要件・バックアップ・ブックマークレットなどの補足資料
+
+## バックアップ
+
+IndexedDB 内のデータはブラウザ開発者ツールから JSON 形式でエクスポートできます。詳しくは `docs/data_seeding.md` を参照してください。
 
 ## 注意事項
 
-- `apps/web/node_modules` や `.next` などの生成物は Git 管理外です。必要に応じて `npm install` を再実行してください。
-- 実運用データはコミットせず、提供されているシードスクリプトや dump を利用して動作確認を行ってください。
+- ブラウザのストレージはユーザー操作や OS により削除される場合があります。重要なノートはエクスポートしてバックアップしてください。
+- 将来的にクラウド同期や分析 API を追加する際は、同梱の Docker/Postgres 環境を流用できます。
+

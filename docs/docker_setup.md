@@ -17,16 +17,17 @@
 +----------------------+            +------------------------+
 ```
 
-- **web**: Next.js (App Router)。ローカル専用のメール/パスワード認証とノート管理UIを提供。
+- **web**: Next.js (App Router)。現在は IndexedDB にのみ保存する PWA を提供。将来の分析 API 連携や広告計測を検証する際は、このコンテナから Postgres へ接続する。
 - **db**: 公式 `postgres:15` イメージ。初期化時に `database/init.sql` を読み込んで `users` / `tasting_notes` テーブルを作成。
 - **analytics-api**: Python + FastAPI のスタブ。今後の Word2Vec / PCA / k-NN などの分析機能を差し込む予定。
 
 ## 2. 環境変数・ボリューム設計（最小構成）
 
 ### web サービス
-- `DATABASE_URL`: Next.js から Postgres に接続するための DSN。例 `postgresql://postgres:postgres@db:5432/postgres`。
-- `SESSION_SECRET` / `SESSION_COOKIE_NAME`: JWT セッション用のシークレットとクッキー名。
-- `NEXT_PUBLIC_API_BASE_URL`: 分析APIとの連携用ベースURL（現状は `http://localhost:8000`）。
+- IndexedDB 専用モードでは環境変数は不要です。Docker 上で Postgres 連携機能を検証したい場合のみ、以下を設定してください。
+  - `DATABASE_URL`: Next.js から Postgres に接続するための DSN。例 `postgresql://postgres:postgres@db:5432/postgres`。
+  - `SESSION_SECRET` / `SESSION_COOKIE_NAME`: JWT セッション用のシークレットとクッキー名（サーバーサイド認証を再導入する場合のみ）。
+  - `NEXT_PUBLIC_API_BASE_URL`: 分析APIとの連携用ベースURL（例 `http://localhost:8000`）。
 - ボリューム
   - `./apps/web:/app`: フロントエンドのソースコード同期。
   - `web-node-modules`: 依存パッケージキャッシュ。
@@ -59,22 +60,22 @@
 3. 終了時は `docker compose down` を実行してコンテナとネットワークを破棄。
 
 ### 検証時のメモ
-- Postgres 初期化は `database/init.sql` に依存。スキーマ変更時はマイグレーション管理（例：Sqitch、Prisma Migrate）を導入予定。
-- Next.js コンテナは起動時に `npm install` を実行する。パフォーマンス改善のため `package-lock.json` をコミットし `npm ci` に切り替える案を検討中。
-- ローカル認証は JWT Cookie ベース。`SESSION_SECRET` を十分長いランダム文字列に変更して利用する。
+- Postgres 初期化は `database/init.sql` に依存。サーバー保存モードへ戻したい場合はマイグレーションを順次適用する。
+- Next.js コンテナは起動時に `npm install` を実行する。パフォーマンス改善のため `package-lock.json` をコミットし `npm ci` へ切り替える案を検討中。
+- 認証や画像アップロードなどの API ルートは現状無効化済み。必要になった際に `apps/web/lib/db.ts` など既存のユーティリティを再利用できる。
 
 ## 4. マイグレーション適用の流れ
 
-DB コンテナには初期化 SQL のみ自動適用されるため、スキーマ追加やサンプルデータ投入は手動で実行する。
+DB コンテナには初期化 SQL のみ自動適用されるため、サーバーサイド機能を再利用する際は追加のマイグレーションやサンプルデータ投入を手動で行います。IndexedDB モードではこれらの手順は不要です。
 
-### サンプルデータの投入
+### サンプルデータの投入（サーバーモードを利用する場合）
 
 `docker compose exec -T web npm run seed`
 
 - ユーザー: `it.chshi17623.m1@gmail.com` （初回作成時のみパスワード `password` を設定）
 - ノート: `apps/web/data/distilleries.json` を元に変換した全データを追加（重複はスキップ）
 
-より大きなデータが必要な場合は `node scripts/import_distilleries.js` を利用する。
+より大きなデータが必要な場合は `node scripts/import_distilleries.js` を利用できます。
 
 ### マイグレーション適用例
 
@@ -83,4 +84,4 @@ DB コンテナには初期化 SQL のみ自動適用されるため、スキー
 - 例：制約・列リネームマイグレーション  
   `cat database/migrations/0002_update_note_constraints.sql | docker compose exec -T db psql -U postgres -d postgres`
 
-適用後は `docker compose restart web` で Next.js を再起動し、最新スキーマに追随させる。
+適用後は `docker compose restart web` で Next.js を再起動し、最新スキーマに追随させてください。

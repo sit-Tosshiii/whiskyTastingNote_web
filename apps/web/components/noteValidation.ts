@@ -7,7 +7,8 @@ export type FieldName =
   | "summary"
   | "abv"
   | "cask"
-  | "rating";
+  | "rating"
+  | "drinking_method";
 
 export type ValidationRule = {
   label: string;
@@ -27,7 +28,8 @@ export const FIELD_RULES: Record<FieldName, ValidationRule> = {
   summary: { label: "総合", maxLength: 200 },
   abv: { label: "アルコール度数", min: 0, max: 100 },
   cask: { label: "樽", maxLength: 100 },
-  rating: { label: "総合スコア", min: 0, max: 100, integer: true }
+  rating: { label: "総合スコア", min: 0, max: 100, integer: true },
+  drinking_method: { label: "飲み方", maxLength: 40 }
 };
 
 export function validateField(name: FieldName, rawValue: string): string | null {

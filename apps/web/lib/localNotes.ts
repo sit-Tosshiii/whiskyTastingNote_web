@@ -11,6 +11,8 @@ export type NoteRecord = {
   abv: number | null;
   cask: string | null;
   rating: number | null;
+  drinking_method: string | null;
+  images: string[];
   created_at: string;
   updated_at: string;
 };
@@ -61,7 +63,14 @@ export async function getAllNotes(): Promise<NoteRecord[]> {
   const tx = db.transaction(STORE_NAME, "readonly");
   const store = tx.objectStore(STORE_NAME);
   const notes = await wrapRequest<NoteRecord[]>(store.getAll());
-  return notes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  // ensure defaults for backward compatibility
+  const normalized = notes.map((n) => ({
+    images: [],
+    drinking_method: null,
+    ...n,
+    images: Array.isArray((n as any).images) ? (n as any).images as string[] : []
+  }));
+  return normalized.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
 export async function getNote(id: number): Promise<NoteRecord | undefined> {
@@ -76,7 +85,14 @@ export async function addNote(input: NoteInput): Promise<NoteRecord> {
   const tx = db.transaction(STORE_NAME, "readwrite");
   const store = tx.objectStore(STORE_NAME);
   const timestamp = new Date().toISOString();
-  const note: NoteRecord = { ...input, created_at: timestamp, updated_at: timestamp };
+  const note: NoteRecord = {
+    images: [],
+    drinking_method: null,
+    ...input,
+    images: Array.isArray((input as any).images) ? (input as any).images as string[] : [],
+    created_at: timestamp,
+    updated_at: timestamp
+  };
   const id = await wrapRequest<number>(store.add(note));
   return { ...note, id };
 }
@@ -88,7 +104,12 @@ export async function updateNote(note: NoteRecord): Promise<NoteRecord> {
   const db = await openDb();
   const tx = db.transaction(STORE_NAME, "readwrite");
   const store = tx.objectStore(STORE_NAME);
-  const updated = { ...note, updated_at: new Date().toISOString() };
+  const updated = {
+    images: Array.isArray((note as any).images) ? (note as any).images as string[] : [],
+    drinking_method: (note as any).drinking_method ?? null,
+    ...note,
+    updated_at: new Date().toISOString()
+  } as NoteRecord;
   await wrapRequest(store.put(updated));
   return updated;
 }
@@ -168,6 +189,10 @@ export async function importNotesFromJson(raw: unknown, mode: ImportMode = "appe
       cask: sanitizeString((item as Record<string, unknown>).cask, 100),
       abv: sanitizeNumber((item as Record<string, unknown>).abv, { min: 0, max: 100 }),
       rating: sanitizeNumber((item as Record<string, unknown>).rating, { min: 0, max: 100 }),
+      drinking_method: sanitizeString((item as Record<string, unknown>).drinking_method, 40),
+      images: Array.isArray((item as Record<string, unknown>).images)
+        ? ((item as any).images as unknown[]).filter((x) => typeof x === "string") as string[]
+        : [],
       created_at: sanitizeDate((item as Record<string, unknown>).created_at) ?? new Date().toISOString(),
       updated_at: sanitizeDate((item as Record<string, unknown>).updated_at) ?? new Date().toISOString()
     };

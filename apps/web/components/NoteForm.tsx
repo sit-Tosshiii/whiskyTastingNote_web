@@ -19,6 +19,8 @@ export function NoteForm({ onSaved }: NoteFormProps) {
   const [pending, setPending] = useState(false);
   const aromaRef = useRef<HTMLTextAreaElement>(null);
   const flavorRef = useRef<HTMLTextAreaElement>(null);
+  const [images, setImages] = useState<string[]>([]);
+  const [drinkingMethod, setDrinkingMethod] = useState<string>("");
 
   const aromaVocabulary = useMemo(
     () => ({
@@ -38,9 +40,7 @@ export function NoteForm({ onSaved }: NoteFormProps) {
 
   const handleBlur = useCallback((event: FocusEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name } = event.currentTarget;
-    if (!FIELD_RULES[name as FieldName]) {
-      return;
-    }
+    if (!FIELD_RULES[name as FieldName]) return;
     const message = validateField(name as FieldName, event.currentTarget.value);
     setErrors((prev) => {
       if (!message) {
@@ -53,13 +53,9 @@ export function NoteForm({ onSaved }: NoteFormProps) {
 
   const handleChange = useCallback((event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name } = event.currentTarget;
-    if (!FIELD_RULES[name as FieldName]) {
-      return;
-    }
+    if (!FIELD_RULES[name as FieldName]) return;
     setErrors((prev) => {
-      if (!(name as FieldName in prev)) {
-        return prev;
-      }
+      if (!(name as FieldName in prev)) return prev;
       const message = validateField(name as FieldName, event.currentTarget.value);
       if (!message) {
         const { [name as FieldName]: _removed, ...rest } = prev;
@@ -79,9 +75,7 @@ export function NoteForm({ onSaved }: NoteFormProps) {
       const value = formData.get(field);
       if (typeof value === "string") {
         const message = validateField(field, value);
-        if (message) {
-          newErrors[field] = message;
-        }
+        if (message) newErrors[field] = message;
       }
     });
 
@@ -117,15 +111,15 @@ export function NoteForm({ onSaved }: NoteFormProps) {
         summary,
         abv,
         cask,
-        rating
+        rating,
+        drinking_method: drinkingMethod || null,
+        images
       });
       form.reset();
-      if (aromaRef.current) {
-        aromaRef.current.value = "";
-      }
-      if (flavorRef.current) {
-        flavorRef.current.value = "";
-      }
+      if (aromaRef.current) aromaRef.current.value = "";
+      if (flavorRef.current) flavorRef.current.value = "";
+      setImages([]);
+      setDrinkingMethod("");
       setErrors({});
       onSaved?.(saved);
     } catch (error) {
@@ -134,22 +128,18 @@ export function NoteForm({ onSaved }: NoteFormProps) {
     } finally {
       setPending(false);
     }
-  }, [onSaved]);
+  }, [onSaved, drinkingMethod, images]);
 
   const appendTermToField = useCallback(
     (field: FieldName, ref: React.RefObject<HTMLTextAreaElement | HTMLInputElement>, term: string) => {
       const target = ref.current;
-      if (!target) {
-        return;
-      }
+      if (!target) return;
       const currentValue = target.value.trim();
       const delimiter = currentValue ? "、" : "";
       const existingTokens = currentValue
-        ? currentValue.split(/[、,，\/・\s]+/u).map((token) => token.trim()).filter(Boolean)
+        ? currentValue.split(/[、,;\/・\s]+/u).map((token) => token.trim()).filter(Boolean)
         : [];
-      if (existingTokens.includes(term)) {
-        return;
-      }
+      if (existingTokens.includes(term)) return;
       const nextValue = `${currentValue}${delimiter}${term}`.replace(/^\s+/, "");
       target.value = nextValue;
       const inputEvent = new Event("input", { bubbles: true });
@@ -163,7 +153,7 @@ export function NoteForm({ onSaved }: NoteFormProps) {
         return { ...prev, [field]: message };
       });
     },
-    [setErrors]
+    []
   );
 
   return (
@@ -181,7 +171,7 @@ export function NoteForm({ onSaved }: NoteFormProps) {
     >
       <h3 style={{ fontSize: "1.25rem", marginBottom: "0.25rem" }}>テイスティングノートを追加</h3>
       <label style={{ display: "grid", gap: "0.35rem" }}>
-        <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>銘柄名 *</span>
+        <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>銘柄名*</span>
         <input
           name="whisky_name"
           placeholder="銘柄名を入力"
@@ -193,8 +183,9 @@ export function NoteForm({ onSaved }: NoteFormProps) {
         />
       </label>
       {errors.whisky_name && <ErrorText message={errors.whisky_name} />}
+
       <label style={{ display: "grid", gap: "0.35rem" }}>
-        <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>蒸留所名</span>
+        <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>蒸留所</span>
         <input
           name="distillery_name"
           placeholder="例: Yamazaki Distillery"
@@ -205,11 +196,12 @@ export function NoteForm({ onSaved }: NoteFormProps) {
         />
       </label>
       {errors.distillery_name && <ErrorText message={errors.distillery_name} />}
+
       <label style={{ display: "grid", gap: "0.35rem" }}>
         <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>産地</span>
         <input
           name="region"
-          placeholder="例: 日本 / スコットランド・アイラ"
+          placeholder="例: 日本 / スコットランド（アイラなど）"
           maxLength={100}
           onBlur={handleBlur}
           onChange={handleChange}
@@ -217,6 +209,7 @@ export function NoteForm({ onSaved }: NoteFormProps) {
         />
       </label>
       {errors.region && <ErrorText message={errors.region} />}
+
       <label style={{ display: "grid", gap: "0.35rem" }}>
         <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>香り</span>
         <textarea
@@ -231,13 +224,16 @@ export function NoteForm({ onSaved }: NoteFormProps) {
         />
       </label>
       {errors.aroma && <ErrorText message={errors.aroma} />}
+
       <KeywordSuggestions
         title="香りのヒント"
         description="気になる語句をクリックして追加できます"
         vocabulary={aromaVocabulary}
         onSelect={(term) => appendTermToField("aroma", aromaRef, term)}
-        randomCount={5}
+        randomCount={10}
+        showCategories={false}
       />
+
       <label style={{ display: "grid", gap: "0.35rem" }}>
         <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>味わい</span>
         <textarea
@@ -252,13 +248,16 @@ export function NoteForm({ onSaved }: NoteFormProps) {
         />
       </label>
       {errors.flavor && <ErrorText message={errors.flavor} />}
+
       <KeywordSuggestions
         title="味わいのヒント"
         description="よく使われる表現から選べます"
         vocabulary={flavorVocabulary}
         onSelect={(term) => appendTermToField("flavor", flavorRef, term)}
-        randomCount={5}
+        randomCount={10}
+        showCategories={false}
       />
+
       <label style={{ display: "grid", gap: "0.35rem" }}>
         <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>総合</span>
         <textarea
@@ -272,6 +271,26 @@ export function NoteForm({ onSaved }: NoteFormProps) {
         />
       </label>
       {errors.summary && <ErrorText message={errors.summary} />}
+
+      <label style={{ display: "grid", gap: "0.35rem" }}>
+        <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>飲み方</span>
+        <select
+          name="drinking_method"
+          value={drinkingMethod}
+          onChange={(e) => setDrinkingMethod(e.target.value)}
+          style={inputStyle as any}
+        >
+          <option value="">選択してください</option>
+          <option value="ストレート">ストレート</option>
+          <option value="トワイスアップ">トワイスアップ</option>
+          <option value="ロック">ロック</option>
+          <option value="水割り">水割り</option>
+          <option value="ソーダ割り">ソーダ割り</option>
+          <option value="その他">その他</option>
+        </select>
+      </label>
+      {errors.drinking_method && <ErrorText message={errors.drinking_method} />}
+
       <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap" }}>
         <label style={{ display: "grid", gap: "0.35rem", flex: "1 1 140px" }}>
           <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>アルコール度数 (ABV)</span>
@@ -288,6 +307,7 @@ export function NoteForm({ onSaved }: NoteFormProps) {
           />
         </label>
         {errors.abv && <ErrorText message={errors.abv} />}
+
         <label style={{ display: "grid", gap: "0.35rem", flex: "1 1 140px" }}>
           <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>樽</span>
           <input
@@ -300,6 +320,7 @@ export function NoteForm({ onSaved }: NoteFormProps) {
           />
         </label>
         {errors.cask && <ErrorText message={errors.cask} />}
+
         <label style={{ display: "grid", gap: "0.35rem", flex: "1 1 140px" }}>
           <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>総合スコア (0-100)</span>
           <input
@@ -316,6 +337,40 @@ export function NoteForm({ onSaved }: NoteFormProps) {
         </label>
       </div>
       {errors.rating && <ErrorText message={errors.rating} />}
+
+      <label style={{ display: "grid", gap: "0.35rem" }}>
+        <span style={{ fontSize: "0.85rem", opacity: 0.75 }}>画像 (最大5枚)</span>
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={async (e) => {
+            const files = Array.from(e.target.files || []);
+            const limited = files.slice(0, 5);
+            const readAsDataUrl = (f: File) => new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(String(reader.result || ""));
+              reader.onerror = () => reject(reader.error);
+              reader.readAsDataURL(f);
+            });
+            const urls: string[] = [];
+            for (const f of limited) {
+              try { urls.push(await readAsDataUrl(f)); } catch {}
+            }
+            setImages(urls);
+          }}
+          style={inputStyle}
+        />
+        {images.length > 0 && (
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
+            {images.map((src, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img key={i} src={src} alt={`preview-${i}`} style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 6, border: "1px solid rgba(148,163,184,0.3)" }} />
+            ))}
+          </div>
+        )}
+      </label>
+
       <SubmitButton label="ノートを保存" pending={pending} />
       {formError && <p style={formErrorStyle}>{formError}</p>}
     </form>
@@ -349,3 +404,4 @@ const formErrorStyle: CSSProperties = {
 function ErrorText({ message }: { message: string }) {
   return <span style={errorTextStyle}>{message}</span>;
 }
+

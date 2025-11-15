@@ -27,6 +27,7 @@ type KeywordSuggestionsProps = {
   onSelect: (term: string) => void;
   randomCount?: number;
   maxCategoryItems?: number;
+  showCategories?: boolean;
 };
 
 function pickRandomKeywords(source: Keyword[], count: number) {
@@ -45,7 +46,8 @@ export function KeywordSuggestions({
   vocabulary,
   onSelect,
   randomCount = 3,
-  maxCategoryItems = 12
+  maxCategoryItems = 12,
+  showCategories = true
 }: KeywordSuggestionsProps) {
   const availableCategories = useMemo(
     () => vocabulary.categories.filter((category) => category.keywords.length > 0),
@@ -81,7 +83,7 @@ export function KeywordSuggestions({
     setRandomKeywords(pickRandomKeywords(flatKeywords, randomCount));
   };
 
-  if (!availableCategories.length) {
+  if (!availableCategories.length && randomKeywords.length === 0) {
     return null;
   }
 
@@ -123,7 +125,7 @@ export function KeywordSuggestions({
         </div>
       )}
 
-      <div style={categorySectionStyle}>
+      <div style={{ ...categorySectionStyle, display: showCategories ? "grid" : "none" }}>
         <div style={sectionHeaderStyle}>
           <span style={sectionTitleStyle}>📚 カテゴリから探す</span>
         </div>

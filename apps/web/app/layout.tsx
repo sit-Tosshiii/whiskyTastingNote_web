@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import "../styles/globals.css";
 import { PwaProvider } from "@/components/PwaProvider";
 
@@ -24,7 +25,18 @@ export default function RootLayout({
       </head>
       <body>
         <PwaProvider />
-        {children}
+        <div className="app-shell">
+          <div className="app-content">{children}</div>
+          <footer className="site-footer">
+            <nav className="site-footer-links">
+              <Link href="/contact">お問い合わせ</Link>
+              <Link href="/privacy">プライバシーポリシー</Link>
+            </nav>
+            <a className="site-footer-mail" href="mailto:weba70440@gmail.com">
+              weba70440@gmail.com
+            </a>
+          </footer>
+        </div>
       </body>
     </html>
   );

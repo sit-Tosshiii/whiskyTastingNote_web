@@ -30,7 +30,8 @@ export function EditNoteForm({ noteId, onSaved }: EditNoteFormProps) {
         router.push("/notes");
         return;
       }
-      setNote({ images: [], drinking_method: null, ...fetched, images: Array.isArray((fetched as any).images) ? (fetched as any).images as string[] : [] });
+      const normalizedImages = Array.isArray((fetched as any).images) ? (fetched as any).images : [];
+      setNote({ ...fetched, drinking_method: (fetched as any).drinking_method ?? null, images: normalizedImages });
       setDrinkingMethod((fetched as any).drinking_method ?? "");
       setImages(Array.isArray((fetched as any).images) ? ((fetched as any).images as string[]) : []);
     });

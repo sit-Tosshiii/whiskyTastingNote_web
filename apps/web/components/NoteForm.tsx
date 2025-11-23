@@ -137,7 +137,7 @@ export function NoteForm({ onSaved }: NoteFormProps) {
       const currentValue = target.value.trim();
       const delimiter = currentValue ? "、" : "";
       const existingTokens = currentValue
-        ? currentValue.split(/[、,;\/・\s]+/u).map((token) => token.trim()).filter(Boolean)
+        ? currentValue.split(/[、,;\/・\s]+/).map((token) => token.trim()).filter(Boolean)
         : [];
       if (existingTokens.includes(term)) return;
       const nextValue = `${currentValue}${delimiter}${term}`.replace(/^\s+/, "");
@@ -404,4 +404,3 @@ const formErrorStyle: CSSProperties = {
 function ErrorText({ message }: { message: string }) {
   return <span style={errorTextStyle}>{message}</span>;
 }
-

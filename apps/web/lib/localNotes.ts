@@ -64,12 +64,15 @@ export async function getAllNotes(): Promise<NoteRecord[]> {
   const store = tx.objectStore(STORE_NAME);
   const notes = await wrapRequest<NoteRecord[]>(store.getAll());
   // ensure defaults for backward compatibility
-  const normalized = notes.map((n) => ({
-    images: [],
-    drinking_method: null,
-    ...n,
-    images: Array.isArray((n as any).images) ? (n as any).images as string[] : []
-  }));
+  const normalized = notes.map((n) => {
+    const images = Array.isArray((n as any).images) ? ((n as any).images as string[]) : [];
+    const drinkingMethod = typeof (n as any).drinking_method === "string" ? ((n as any).drinking_method as string) : null;
+    return {
+      ...n,
+      images,
+      drinking_method: drinkingMethod
+    };
+  });
   return normalized.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 }
 
@@ -85,16 +88,17 @@ export async function addNote(input: NoteInput): Promise<NoteRecord> {
   const tx = db.transaction(STORE_NAME, "readwrite");
   const store = tx.objectStore(STORE_NAME);
   const timestamp = new Date().toISOString();
+  const images = Array.isArray((input as any).images) ? ((input as any).images as string[]) : [];
+  const drinkingMethod = typeof (input as any).drinking_method === "string" ? ((input as any).drinking_method as string) : null;
   const note: NoteRecord = {
-    images: [],
-    drinking_method: null,
     ...input,
-    images: Array.isArray((input as any).images) ? (input as any).images as string[] : [],
+    images,
+    drinking_method: drinkingMethod,
     created_at: timestamp,
     updated_at: timestamp
   };
-  const id = await wrapRequest<number>(store.add(note));
-  return { ...note, id };
+  const insertedId = await wrapRequest<IDBValidKey>(store.add(note));
+  return { ...note, id: typeof insertedId === "number" ? insertedId : Number(insertedId) };
 }
 
 export async function updateNote(note: NoteRecord): Promise<NoteRecord> {
@@ -104,12 +108,14 @@ export async function updateNote(note: NoteRecord): Promise<NoteRecord> {
   const db = await openDb();
   const tx = db.transaction(STORE_NAME, "readwrite");
   const store = tx.objectStore(STORE_NAME);
-  const updated = {
-    images: Array.isArray((note as any).images) ? (note as any).images as string[] : [],
-    drinking_method: (note as any).drinking_method ?? null,
+  const images = Array.isArray((note as any).images) ? ((note as any).images as string[]) : [];
+  const drinkingMethod = typeof (note as any).drinking_method === "string" ? ((note as any).drinking_method as string) : null;
+  const updated: NoteRecord = {
     ...note,
+    images,
+    drinking_method: drinkingMethod,
     updated_at: new Date().toISOString()
-  } as NoteRecord;
+  };
   await wrapRequest(store.put(updated));
   return updated;
 }

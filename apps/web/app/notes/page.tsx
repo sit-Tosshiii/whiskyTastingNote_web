@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { CSSProperties, FormEvent } from "react";
 import { NotesList } from "@/components/NotesList";
@@ -25,7 +25,7 @@ function filterNotes(notes: NoteRecord[], keyword: string) {
   );
 }
 
-export default function NotesPage() {
+function NotesPageContent() {
   const router = useRouter();
   const params = useSearchParams();
   const keywordParam = params.get("q") ?? "";
@@ -209,6 +209,20 @@ export default function NotesPage() {
   );
 }
 
+export default function NotesPage() {
+  return (
+    <Suspense
+      fallback={
+        <main style={{ maxWidth: 800, margin: "0 auto", padding: "1.5rem" }}>
+          <p>検索条件を読み込み中...</p>
+        </main>
+      }
+    >
+      <NotesPageContent />
+    </Suspense>
+  );
+}
+
 const linkButtonStyle: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
@@ -232,4 +246,3 @@ const searchFormStyle: CSSProperties = {
   border: "1px solid rgba(148, 163, 184, 0.2)",
   backgroundColor: "rgba(15, 23, 42, 0.4)"
 };
-

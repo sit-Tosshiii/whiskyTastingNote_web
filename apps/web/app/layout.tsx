@@ -22,6 +22,8 @@ export default function RootLayout({
         <meta name="theme-color" content="#0f172a" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3588448572921726"
+     crossorigin="anonymous"></script>
       </head>
       <body>
         <PwaProvider />

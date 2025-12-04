@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import type { CSSProperties } from "react";
 import { EditNoteForm } from "@/components/EditNoteForm";
 
+export const runtime = "edge";
+
 export default function EditNotePage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();

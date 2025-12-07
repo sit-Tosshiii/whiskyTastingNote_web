@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { NoteRecord } from "@/lib/localNotes";
+import { ShareToX } from "./ShareToX";
 
 type TastingNote = NoteRecord;
 
@@ -105,6 +106,8 @@ export function NotesList({ notes, onEdit, onDelete }: Props) {
                 ))}
               </div>
             )}
+
+            {isOpen && <ShareToX note={note} compact />}
 
             {isOpen && (
               <footer style={{ fontSize: "0.75rem", opacity: 0.6 }}>

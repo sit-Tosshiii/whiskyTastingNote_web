@@ -22,11 +22,6 @@ export default function RootLayout({
         <meta name="theme-color" content="#0f172a" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3588448572921726"
-          crossOrigin="anonymous"
-        />
       </head>
       <body>
         <PwaProvider />
@@ -34,9 +29,14 @@ export default function RootLayout({
           <div className="app-content">{children}</div>
           <footer className="site-footer">
             <nav className="site-footer-links">
+              <Link href="/guides">読み物コンテンツ</Link>
               <Link href="/contact">お問い合わせ</Link>
               <Link href="/privacy">プライバシーポリシー</Link>
+              <Link href="/terms">利用規約</Link>
             </nav>
+            <p className="site-footer-notice">
+              Whisky Tasting Note は 20 歳以上の方を対象としたサービスです。20 歳未満の飲酒は法律で禁止されています。
+            </p>
             <a className="site-footer-mail" href="mailto:weba70440@gmail.com">
               weba70440@gmail.com
             </a>

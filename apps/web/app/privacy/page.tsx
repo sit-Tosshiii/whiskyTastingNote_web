@@ -35,6 +35,14 @@ export default function PrivacyPage() {
         </header>
 
         <section>
+          <h2 style={sectionTitleStyle}>対象となる利用者とアルコールに関する前提</h2>
+          <p>
+            当アプリはウイスキーのテイスティングノートを記録するツールであり、20 歳以上の成人の方を対象としています。
+            20 歳未満の飲酒は法律で禁止されており、未成年者の利用や飲酒を助長する目的では提供しておりません。
+          </p>
+        </section>
+
+        <section>
           <h2 style={sectionTitleStyle}>収集する情報</h2>
           <p>
             当アプリはテイスティングノートを端末内の IndexedDB に保存しており、運営者が個別の記録データへアクセスすることはありません。
